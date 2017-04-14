@@ -1,2 +1,4 @@
 # clj-panlex
-Closure client for PanLex API
+Clojure client for PanLex API
+
+**NOTE** not in any way production-ready!

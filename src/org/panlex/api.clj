@@ -8,9 +8,9 @@
               #^{:static true} [getTranslations [String String String int int] "[Ljava.util.HashMap;"]])
   (:require [clj-http.lite.client :as client]
             [cheshire.core :refer :all]
-            [clojure.walk :as walk])
-  (:import (clojure.lang PersistentVector)
-           ))
+            [clojure.walk :as walk]
+            [clojure.java.data :refer [from-java]])
+  )
 
 (def version 2)
 
@@ -32,19 +32,21 @@
           :resultNum (+ (:resultNum query-output) (:resultNum new-query-output))}))
 
 (defn query-all [ep params]
-  (let [offset-params (if (:offset params) params (assoc params :offset 0))]
+  (let [offset-params (if (:offset params)
+                        params
+                        (assoc params :offset 0))]
     (loop [temp-params offset-params
            growing-query-output nil]
-      (let [query-output (query ep temp-params)
+      (let [{:keys [resultNum] :as query-output} (query ep temp-params)
             final-query-output (if growing-query-output
                                  (merge-results growing-query-output query-output)
                                  query-output)
             new-params (merge temp-params
-                              {:offset (+ (:offset temp-params) (:resultNum query-output))}
+                              {:offset (+ (:offset temp-params) resultNum)}
                               (when (:limit temp-params)
-                                {:limit (- (:limit temp-params) (:resultNum query-output))}))]
+                                {:limit (- (:limit temp-params) resultNum)}))]
         (if (or
-              (< (:resultNum query-output) (:resultMax query-output))
+              (< resultNum (:resultMax query-output))
               (and (:limit new-params) (<= (:limit new-params) 0)))
           final-query-output
           (recur new-params final-query-output))))))
@@ -60,20 +62,24 @@
                       (when limit {:limit limit}))]
     (:result (query-all "/expr" params))))
 
-(defn- java-y [form]
+(defn- old-java-y [form]
   (walk/postwalk #(if (vector? %) (into-array %) %)
                  (walk/postwalk #(if (map? %) (java.util.HashMap. %) %)
                                 (walk/stringify-keys form))))
 
+(defn- java-y [form]
+  (walk/postwalk #(cond (map? %) (java.util.HashMap. %)
+                        (vector? %) (into-array java.util.HashMap %)
+                        :else %)
+                 (walk/stringify-keys form)))
+
+
 (defn- clojure-y [form]
-  (walk/keywordize-keys (walk/postwalk #(if (instance? java.util.HashMap %) (into {} %) %)
-                 (walk/postwalk #(if (.isArray (class %)) (into [] %) %)
-                                form))))
+  (walk/keywordize-keys (from-java form)))
 
+(defn -query [ep params] (java-y (query ep (clojure-y params))))
 
-(defn -query [ep params] (query ep (clojure-y params)))
-
-(defn -queryAll [ep params] (query-all ep (clojure-y params)))
+(defn -queryAll [ep params] (java-y (query-all ep (clojure-y params))))
 
 (defn -getTranslations
   ([expn start-lang end-lang]

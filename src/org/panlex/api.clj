@@ -1,16 +1,19 @@
 (ns org.panlex.api
   (:gen-class
     :name org.panlex.api
-    :methods [#^{:static true} [query [String java.util.HashMap] java.util.HashMap]
-              #^{:static true} [queryAll [String java.util.HashMap] java.util.HashMap]
-              #^{:static true} [getTranslations [String String String] "[Ljava.util.HashMap;"]
-              #^{:static true} [getTranslations [String String String int] "[Ljava.util.HashMap;"]
-              #^{:static true} [getTranslations [String String String int int] "[Ljava.util.HashMap;"]])
+    :methods [#^{:static true} [query [String java.util.Map] java.util.Map]
+              #^{:static true} [query [String String] java.util.Map]
+              #^{:static true} [queryAll [String java.util.Map] java.util.Map]
+              #^{:static true} [queryAll [String String] java.util.Map]
+              #^{:static true} [getTranslations [String String String] java.util.List]
+              #^{:static true} [getTranslations [String String String int] java.util.List]
+              #^{:static true} [getDistanceTwoTranslations [String String String] java.util.List]
+              #^{:static true} [getDistanceTwoTranslations [String String String int] java.util.List]])
   (:require [clj-http.lite.client :as client]
             [cheshire.core :refer :all]
             [clojure.walk :as walk]
             [clojure.java.data :refer [from-java]])
-  )
+  (:import (clojure.lang MapEntry PersistentArrayMap)))
 
 (def version 2)
 
@@ -62,33 +65,57 @@
                       (when limit {:limit limit}))]
     (:result (query-all "/expr" params))))
 
-(defn- old-java-y [form]
-  (walk/postwalk #(if (vector? %) (into-array %) %)
-                 (walk/postwalk #(if (map? %) (java.util.HashMap. %) %)
-                                (walk/stringify-keys form))))
-
-(defn- java-y [form]
-  (walk/postwalk #(cond (map? %) (java.util.HashMap. %)
-                        (vector? %) (into-array java.util.HashMap %)
-                        :else %)
-                 (walk/stringify-keys form)))
-
+;(defn- old-java-y [form]
+;  (walk/prewalk #(if (vector? %) (into-array %) %)
+;                 (walk/prewalk #(if (map? %) (java.util.HashMap. %) %)
+;                                (walk/stringify-keys form))))
+;
+;(defn- java-y [form]
+;  (walk/prewalk #(cond (map? %) (do (println %) (java.util.HashMap. %))
+;                        (map-entry? %) (do
+;                                        (println %)
+;                                        (println "MAAAAAAAAAAPENTRY")
+;                                        %)
+;                        (instance? MapEntry %) (do
+;                                                 (println "maaaapentrymaybe?")
+;                                                 (println %)
+;                                                 %)
+;                        (vector? %) (do
+;                                     (println (mapv type %))
+;                                     (into-array Object %))
+;                        :else (do
+;                                (println %)
+;                                %))
+;                 (walk/stringify-keys form)))
 
 (defn- clojure-y [form]
   (walk/keywordize-keys (from-java form)))
 
-(defn -query [ep params] (java-y (query ep (clojure-y params))))
+(defn- parse-params [params]
+  (if (string? params)
+    (parse-string params)
+    (clojure-y params)))
 
-(defn -queryAll [ep params] (java-y (query-all ep (clojure-y params))))
+(defn- java-query [f ep params]
+  (walk/stringify-keys (f ep (parse-params params))))
+
+(defn -query [ep params]
+  (java-query query ep params))
+
+(defn -queryAll [ep params]
+  (java-query query-all ep params))
 
 (defn -getTranslations
   ([expn start-lang end-lang]
-   (java-y (get-translations expn start-lang end-lang)))
-  ([expn start-lang end-lang distance]
-   (java-y (get-translations expn start-lang end-lang :distance distance)))
-  ([expn start-lang end-lang distance limit]
-   (java-y (get-translations expn start-lang end-lang :distance distance :limit limit))))
+   (walk/stringify-keys (get-translations expn start-lang end-lang)))
+  ([expn start-lang end-lang limit]
+   (walk/stringify-keys (get-translations expn start-lang end-lang :limit limit))))
 
+(defn -getDistanceTwoTranslations
+  ([expn start-lang end-lang]
+    (walk/stringify-keys (get-translations expn start-lang end-lang :distance 2)))
+  ([expn start-lang end-lang limit]
+    (walk/stringify-keys (get-translations expn start-lang end-lang :distance 2 :limit limit))))
 
 (defn -main
   "Translation test"

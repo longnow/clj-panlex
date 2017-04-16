@@ -66,32 +66,6 @@
                       (when limit {:limit limit}))]
     (:result (query-all "/expr" params))))
 
-;(defn- old-java-y [form]
-;  (walk/prewalk #(if (vector? %) (into-array %) %)
-;                 (walk/prewalk #(if (map? %) (java.util.HashMap. %) %)
-;                                (walk/stringify-keys form))))
-;
-;(defn- java-y [form]
-;  (walk/prewalk #(cond (map? %) (do (println %) (java.util.HashMap. %))
-;                        (map-entry? %) (do
-;                                        (println %)
-;                                        (println "MAAAAAAAAAAPENTRY")
-;                                        %)
-;                        (instance? MapEntry %) (do
-;                                                 (println "maaaapentrymaybe?")
-;                                                 (println %)
-;                                                 %)
-;                        (vector? %) (do
-;                                     (println (mapv type %))
-;                                     (into-array Object %))
-;                        :else (do
-;                                (println %)
-;                                %))
-;                 (walk/stringify-keys form)))
-
-;(defn- clojure-y [form]
-;  (walk/keywordize-keys (from-java form)))
-
 (defn- clojure-y [form]
   (walk/keywordize-keys
     (walk/prewalk #(cond (or (.isArray (class %))

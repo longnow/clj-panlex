@@ -12,7 +12,8 @@
   (:require [clj-http.lite.client :as client]
             [cheshire.core :refer :all]
             [clojure.walk :as walk]
-            [clojure.java.data :refer [from-java]])
+            ;[clojure.java.data :refer [from-java]]
+            )
   (:import (clojure.lang MapEntry PersistentArrayMap)))
 
 (def version 2)
@@ -88,8 +89,16 @@
 ;                                %))
 ;                 (walk/stringify-keys form)))
 
+;(defn- clojure-y [form]
+;  (walk/keywordize-keys (from-java form)))
+
 (defn- clojure-y [form]
-  (walk/keywordize-keys (from-java form)))
+  (walk/keywordize-keys
+    (walk/prewalk #(cond (or (.isArray (class %))
+                             (instance? java.util.Collection %)) (into [] %)
+                          (instance? java.util.Map %) (into {} %)
+                         :else %)
+                  form)))
 
 (defn- parse-params [params]
   (if (string? params)

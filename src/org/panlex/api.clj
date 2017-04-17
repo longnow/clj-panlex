@@ -11,10 +11,7 @@
               #^{:static true} [getDistanceTwoTranslations [String String String int] java.util.List]])
   (:require [clj-http.lite.client :as client]
             [cheshire.core :refer :all]
-            [clojure.walk :as walk]
-            ;[clojure.java.data :refer [from-java]]
-            )
-  (:import (clojure.lang MapEntry PersistentArrayMap)))
+            [clojure.walk :as walk]))
 
 (def version 2)
 
